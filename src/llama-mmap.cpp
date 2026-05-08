@@ -10,6 +10,10 @@
 #include <cerrno>
 #include <algorithm>
 
+// ref: https://github.com/ggml-org/llama.cpp/pull/3631#issuecomment-1763435388
+// ref: https://github.com/abetlen/llama-cpp-python/issues/1284#issuecomment-2007023905
+// ref: https://man7.org/linux/man-pages/man3/posix_madvise.3.html
+
 #ifdef __has_include
     #if __has_include(<unistd.h>)
         #include <unistd.h>
@@ -291,16 +295,20 @@ struct llama_mmap::impl {
         }
 
         if (prefetch > 0) {
+    #if !defined(__ANDROID__) || (defined(__ANDROID_API__) && __ANDROID_API__ >= 23)
             if (posix_madvise(addr, std::min(file->size(), prefetch), POSIX_MADV_WILLNEED)) {
                 LLAMA_LOG_WARN("warning: posix_madvise(.., POSIX_MADV_WILLNEED) failed: %s\n",
                         strerror(errno));
             }
+#endif
         }
         if (numa) {
+    #if !defined(__ANDROID__) || (defined(__ANDROID_API__) && __ANDROID_API__ >= 23)
             if (posix_madvise(addr, file->size(), POSIX_MADV_RANDOM)) {
                 LLAMA_LOG_WARN("warning: posix_madvise(.., POSIX_MADV_RANDOM) failed: %s\n",
                         strerror(errno));
             }
+#endif
         }
 
         mapped_fragments.emplace_back(0, file->size());
